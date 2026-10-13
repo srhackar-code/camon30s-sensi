@@ -45,6 +45,7 @@ jobs:
           unzip -q android-tools.zip -d android-tools
 
           rm -rf "$ANDROID_HOME/cmdline-tools/latest"
+
           mv android-tools/cmdline-tools \
             "$ANDROID_HOME/cmdline-tools/latest"
 
@@ -54,19 +55,28 @@ jobs:
       - name: Accept Android SDK Licenses
         shell: bash
         run: |
-          set -e
-          yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses \
-            || test "${PIPESTATUS[1]}" -eq 141
+          set -o pipefail
+          yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses || {
+            status=$?
+            if [ "$status" -ne 141 ]; then
+              exit "$status"
+            fi
+          }
 
       - name: Install Android SDK Components
+        shell: bash
         run: |
+          set -e
+
           sdkmanager --sdk_root="$ANDROID_HOME" --install \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
       - name: Extract project
+        shell: bash
         run: |
+          set -e
           unzip -o TECNO_CAMON30S_Sensi_App_Project.zip -d source
 
       - name: Set up Gradle
@@ -75,7 +85,9 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
+        shell: bash
         run: |
+          set -e
           gradle -p source assembleDebug
 
       - name: Upload APK
