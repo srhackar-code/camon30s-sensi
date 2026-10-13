@@ -14,6 +14,10 @@ jobs:
   build:
     runs-on: ubuntu-24.04
 
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -24,27 +28,42 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 'latest'
+      - name: Set up Android Command-line Tools
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+
+          cd "$RUNNER_TEMP"
+
+          curl -fL \
+            https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip \
+            -o android-tools.zip
+
+          mkdir -p android-tools
+          unzip -q android-tools.zip -d android-tools
+
+          rm -rf "$ANDROID_HOME/cmdline-tools/latest"
+          mv android-tools/cmdline-tools \
+            "$ANDROID_HOME/cmdline-tools/latest"
+
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
       - name: Accept Android SDK Licenses
+        shell: bash
         run: |
-          yes | sdkmanager --licenses
+          set -e
+          yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses \
+            || test "${PIPESTATUS[1]}" -eq 141
 
-      - name: Install Android SDK components
+      - name: Install Android SDK Components
         run: |
-          sdkmanager --install \
+          sdkmanager --sdk_root="$ANDROID_HOME" --install \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
-
-      - name: Verify Android SDK
-        run: |
-          sdkmanager --list_installed
-          java -version
-          gradle --version || true
 
       - name: Extract project
         run: |
