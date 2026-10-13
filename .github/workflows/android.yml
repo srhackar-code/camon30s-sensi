@@ -1,98 +1,95 @@
 name: Build Sensi APK
 
 on:
-  workflow_dispatch:
-  push:
-    paths:
-      - 'TECNO_CAMON30S_Sensi_App_Project.zip'
-      - '.github/workflows/android.yml'
+workflow_dispatch:
+push:
+paths:
+- 'TECNO_CAMON30S_Sensi_App_Project.zip'
+- '.github/workflows/android.yml'
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
+build:
+runs-on: ubuntu-24.04
 
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v5
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
+  - name: Set up Java
+    uses: actions/setup-java@v5
+    with:
+      distribution: temurin
+      java-version: '17'
 
-      - name: Set up Android Command-line Tools
-        shell: bash
-        run: |
-          set -e
+  - name: Set up Android Command-line Tools
+    shell: bash
+    run: |
+      set -e
 
-          mkdir -p "$ANDROID_HOME/cmdline-tools"
+      mkdir -p "$ANDROID_HOME/cmdline-tools"
+      cd "$RUNNER_TEMP"
 
-          cd "$RUNNER_TEMP"
+      curl -fL \
+        https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip \
+        -o android-tools.zip
 
-          curl -fL \
-            https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip \
-            -o android-tools.zip
+      mkdir -p android-tools
+      unzip -q android-tools.zip -d android-tools
 
-          mkdir -p android-tools
-          unzip -q android-tools.zip -d android-tools
+      rm -rf "$ANDROID_HOME/cmdline-tools/latest"
 
-          rm -rf "$ANDROID_HOME/cmdline-tools/latest"
+      mv android-tools/cmdline-tools \
+        "$ANDROID_HOME/cmdline-tools/latest"
 
-          mv android-tools/cmdline-tools \
-            "$ANDROID_HOME/cmdline-tools/latest"
+      echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+      echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+  - name: Accept Android SDK Licenses
+    shell: bash
+    run: |
+      set -e
 
-      - name: Accept Android SDK Licenses
-        shell: bash
-        run: |
-          set -o pipefail
-          yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses || {
-            status=$?
-            if [ "$status" -ne 141 ]; then
-              exit "$status"
-            fi
-          }
+      printf 'y\n%.0s' {1..100} | sdkmanager --sdk_root="$ANDROID_HOME" --licenses
 
-      - name: Install Android SDK Components
-        shell: bash
-        run: |
-          set -e
+  - name: Install Android SDK Components
+    shell: bash
+    run: |
+      set -e
 
-          sdkmanager --sdk_root="$ANDROID_HOME" --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+      sdkmanager --sdk_root="$ANDROID_HOME" --install \
+        "platform-tools" \
+        "platforms;android-35" \
+        "build-tools;35.0.0"
 
-      - name: Extract project
-        shell: bash
-        run: |
-          set -e
-          unzip -o TECNO_CAMON30S_Sensi_App_Project.zip -d source
+  - name: Extract project
+    shell: bash
+    run: |
+      set -e
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
+      unzip -o TECNO_CAMON30S_Sensi_App_Project.zip -d source
 
-      - name: Build APK
-        shell: bash
-        run: |
-          set -e
-          gradle -p source assembleDebug
+  - name: Set up Gradle
+    uses: gradle/actions/setup-gradle@v4
+    with:
+      gradle-version: '8.9'
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: CAMON30S-Sensi-APK
-          path: source/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+  - name: Build APK
+    shell: bash
+    run: |
+      set -e
+
+      gradle -p source assembleDebug
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: CAMON30S-Sensi-APK
+      path: source/app/build/outputs/apk/debug/app-debug.apk
+      if-no-files-found: error
